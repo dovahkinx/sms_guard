@@ -179,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 ),
                                 subtitle:
                                     Text(_subtitleConvert(thread.lastMessage),
-                                    style: const TextStyle(color: Colors.grey[700], fontSize: 13),
+                                    style: TextStyle(color: Colors.grey[700], fontSize: 13),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis),
                               ),

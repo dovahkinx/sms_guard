@@ -101,15 +101,28 @@ class SmsManager {
          */
         fun deleteSms(context: Context, id: String?, threadId: String?): Int {
             if (id == null || threadId == null) {
+                Log.e(TAG, "Cannot delete SMS: id or threadId is null")
                 return 0
             }
             
             return try {
+                // content://sms URI'sini kullan
                 val uri = Uri.parse("content://sms")
+                
+                // Sorgu kriterlerini belirle
                 val selection = "${Telephony.Sms._ID} = ? AND ${Telephony.Sms.THREAD_ID} = ?"
                 val selectionArgs = arrayOf(id, threadId)
                 
-                context.contentResolver.delete(uri, selection, selectionArgs)
+                // Silme işlemini yap ve silinen satır sayısını döndür
+                val deletedRows = context.contentResolver.delete(uri, selection, selectionArgs)
+                
+                if (deletedRows > 0) {
+                    Log.i(TAG, "SMS deleted successfully: id=$id, threadId=$threadId")
+                } else {
+                    Log.w(TAG, "No SMS deleted with id=$id, threadId=$threadId")
+                }
+                
+                deletedRows
             } catch (e: Exception) {
                 Log.e(TAG, "Error deleting SMS: ${e.message}")
                 e.printStackTrace()

@@ -21,6 +21,8 @@ class MainActivity: FlutterActivity() {
 
     private val CHANNEL = "com.dovahkin.sms_guard"
     private val SMS_EVENT_CHANNEL = "com.dovahkin.sms_guard/sms"
+    // Track the SMS receiver instance
+    private var smsReceiver: SMSReciver? = null
 
     @SuppressLint("SuspiciousIndentation")
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -84,14 +86,35 @@ class MainActivity: FlutterActivity() {
         val eventchannel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_EVENT_CHANNEL)
         eventchannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                val filter = IntentFilter("android.provider.Telephony.SMS_RECEIVED")
-                registerReceiver(SMSReciver(events), filter)
-                println("SMS Listener registered")
+                try {
+                    val filter = IntentFilter("android.provider.Telephony.SMS_RECEIVED")
+                    // Create and store the receiver instance
+                    smsReceiver = SMSReciver(events)
+                    registerReceiver(smsReceiver, filter)
+                    println("SMS Listener registered successfully")
+                } catch (e: Exception) {
+                    println("Error registering SMS receiver: ${e.message}")
+                    e.printStackTrace()
+                }
             }
 
             override fun onCancel(arguments: Any?) {
-                unregisterReceiver(SMSReciver(null))
-                println("SMS Listener unregistered")
+                try {
+                    // Only unregister if we have a valid receiver
+                    if (smsReceiver != null) {
+                        unregisterReceiver(smsReceiver)
+                        smsReceiver = null
+                        println("SMS Listener unregistered successfully")
+                    } else {
+                        println("No SMS Listener to unregister")
+                    }
+                } catch (e: IllegalArgumentException) {
+                    println("Error unregistering receiver: ${e.message}")
+                    e.printStackTrace()
+                } catch (e: Exception) {
+                    println("Unknown error in onCancel: ${e.message}")
+                    e.printStackTrace()
+                }
             }
         })
     }

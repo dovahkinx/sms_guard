@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use, unrelated_type_equality_checks
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +8,8 @@ import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' show SmsMessage;
 import 'package:sms_guard/services/sms_remover.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_chat_bubble/chat_bubble.dart';
+
 
 import '../cubit/sms_cubit.dart';
 import '../widgets/bottom_send_messages.dart';
@@ -52,12 +54,9 @@ class MessageScreen extends StatelessWidget {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: SendingMessageBox(
-                  textController: textController,
-                  address: address,
-                ),
+              SendingMessageBox(
+                textController: textController,
+                address: address,
               ),
             ],
           ),
@@ -68,30 +67,180 @@ class MessageScreen extends StatelessWidget {
 
   AppBar _appbar(BuildContext context) {
     return AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.teal),
+      backgroundColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+      leadingWidth: 40,
+      leading: IconButton(
+        icon: Icon(
+          Icons.arrow_back_ios_new,
+          size: 20,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        onPressed: () {
+          Navigator.pop(context);
+        },
+      ),
+      title: Row(
+        children: [
+          Hero(
+            tag: "avatar_$address",
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: name.startsWith(RegExp(r'[0-9]')) || name.isEmpty
+                ? const Icon(Icons.person, color: Colors.white, size: 20)
+                : Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : "?",
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name.isEmpty ? address : name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (!name.startsWith(RegExp(r'[0-9]')) && name.isNotEmpty)
+                  Text(
+                    address,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.phone_outlined, color: Colors.blue),
+          tooltip: "Ara",
           onPressed: () {
-            Navigator.pop(context);
+            launchUrl(Uri.parse('tel:$address'));
           },
         ),
-        title: name.startsWith(RegExp(r'[0-9]'))
-            ? Text(
-                name,
-                style: const TextStyle(color: Colors.black87),
-              )
-            : ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  name,
-                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  address,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ));
+        IconButton(
+          icon: Icon(
+            Icons.more_vert,
+            color: Colors.grey[800],
+          ),
+          tooltip: "Daha Fazla",
+          onPressed: () {
+            _showMessageOptions(context);
+          },
+        ),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: Colors.grey[200],
+        ),
+      ),
+    );
+  }
+
+  // Mesaj seçeneklerini göster
+  void _showMessageOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: name.startsWith(RegExp(r'[0-9]')) || name.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : "?",
+                      style: const TextStyle(color: Colors.white),
+                    ),
+              ),
+              title: Text(
+                name.isEmpty ? address : name,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(address),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.phone_outlined, color: Theme.of(context).colorScheme.primary),
+              title: const Text("Ara"),
+              onTap: () {
+                Navigator.pop(context);
+                launchUrl(Uri.parse('tel:$address'));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_copy_outlined, color: Colors.blue),
+              title: const Text("Numarayı Kopyala"),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: address));
+                Navigator.pop(context);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Numara kopyalandı'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.block_outlined, color: Colors.red[700]),
+              title: const Text("Spam Olarak İşaretle"),
+              onTap: () {
+                Navigator.pop(context);
+                // Spam işleme fonksiyonu
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text("Tüm Mesajları Sil"),
+              onTap: () {
+                Navigator.pop(context);
+                // Tüm mesajları silme fonksiyonu
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
   
   // Helper function to parse dates safely
@@ -181,176 +330,133 @@ class MessageScreen extends StatelessWidget {
   Widget _chatBubble(SmsMessage message, BuildContext context) {
     var position = Offset.zero;
     
-    // Mesaj türünü belirle - Gönderilen mesajları doğru tespit için birden fazla kontrol
-    final bool isSent = message.kind.toString() == "SmsMessageKind.Sent" || 
-                       (message.address != null && 
-                        (message.address == address || 
-                         "+90$address" == message.address ||
-                         message.address == "+90$address"));
+    // SMS türü metin olarak al
+    String messageTypeText = _getMessageTypeText(message.kind.toString());
+    
+    // Mesaj türüne göre konumu belirle (Gönderildi veya Giden Kutusu ise sağda, değilse solda)
+    final bool isSent = messageTypeText == "sent" ;
     
     // Mesaj saati - Güvenli şekilde tarihi ayrıştır
     final messageTime = _parseDate(message.date);
     final formattedTime = DateFormat('HH:mm').format(messageTime);
     
+    // SMS diğer özellikleri için metin oluştur
+    _getMessageStatusText(message);
+    
+    // Renk ayarları
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final sentColor = primaryColor.withOpacity(0.15);
+    final receivedColor = Colors.white;
+    final sentTextColor = Colors.black87;
+    final receivedTextColor = Colors.black87;
+    
     return GestureDetector(
       onLongPressStart: (LongPressStartDetails details) {
         position = details.globalPosition;
       },
-      onLongPress: () {
-        final screenSize = MediaQuery.of(context).size;
-
-        showMenu(
-          context: context,
-          position: RelativeRect.fromLTRB(
-              position.dx, position.dy, screenSize.width, 0),
-          items: <PopupMenuEntry>[
-            PopupMenuItem(
-              value: 'copy',
-              child: Row(
-                children: const [
-                  Icon(Icons.copy, size: 18),
-                  SizedBox(width: 8),
-                  Text('Kopyala'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: const [
-                  Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                  SizedBox(width: 8),
-                  Text('Sil'),
-                ],
-              ),
-            ),
-          ],
-        ).then((value) async {
-          if (value == 'copy') {
-            Clipboard.setData(ClipboardData(text: message.body!));
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Mesaj kopyalandı'),
-                  backgroundColor: Colors.teal,
-                  duration: Duration(seconds: 1),
-                )
-              );
-            }
-          } else if (value == 'delete') {
-            try {
-              final result = await SmsRemover().removeSmsById(
-                message.id!.toString(), 
-                message.threadId!.toString()
-              );
-              
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(result),
-                    backgroundColor: Colors.teal,
-                    duration: Duration(seconds: 1),
-                  )
-                );
-                BlocProvider.of<SmsCubit>(context).onNewMessage(null);
-              }
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("SMS silme hatası: $e"),
-                    backgroundColor: Colors.redAccent,
-                  )
-                );
-              }
-            }
-          }
-        });
-      },
+      onLongPress: () => _showMessageActionsMenu(context, message, position),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Row(
           mainAxisAlignment: isSent ? MainAxisAlignment.end : MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (!isSent) // Gelen mesaj ise avatar göster
-              Padding(
-                padding: const EdgeInsets.only(right: 4, top: 6),
+            if (!isSent) // Sol taraftaki avatar (gelen mesaj ise)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
                 child: CircleAvatar(
                   radius: 16,
-                  backgroundColor: Colors.teal,
+                  backgroundColor: _getNameColor(name),
                   child: Text(
                     name.isNotEmpty ? name[0].toUpperCase() : "?",
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
               
             Flexible(
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+              child: ChatBubble(
+                clipper: ChatBubbleClipper6(
+                  type: isSent ? BubbleType.sendBubble : BubbleType.receiverBubble,
+                  radius: 16,
+                  nipSize: 8,
+               
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-                decoration: BoxDecoration(
-                  color: isSent ? Colors.teal.shade500 : Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(16),
-                    topRight: const Radius.circular(16),
-                    bottomLeft: Radius.circular(isSent ? 16 : 4),
-                    bottomRight: Radius.circular(isSent ? 4 : 16),
+                alignment: isSent ? Alignment.topRight : Alignment.topLeft,
+                margin: EdgeInsets.zero,
+                backGroundColor: isSent ? sentColor : receivedColor,
+                elevation: 0.5,
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.7,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      spreadRadius: 1,
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Linkify(
-                      onOpen: (link) {
-                        launchUrl(Uri.parse(link.url));
-                      },
-                      text: message.body ?? "",
-                      style: TextStyle(
-                        color: isSent ? Colors.white : Colors.black87,
-                        fontSize: 15,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Linkify(
+                        onOpen: (link) {
+                          launchUrl(Uri.parse(link.url));
+                        },
+                        text: message.body ?? "",
+                        style: TextStyle(
+                          color: isSent ? sentTextColor : receivedTextColor,
+                          fontSize: 15,
+                          height: 1.3,
+                        ),
+                        linkStyle: const TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
-                      linkStyle: TextStyle(
-                        color: isSent ? Colors.white : Colors.blue,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: Row(
+                      const SizedBox(height: 4),
+                      
+                      // Mesaj zaman bilgisi ve durumu
+                      Row(
                         mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
+                          // Mesaj türü - Küçük etiket
+                          if (!isSent) // Sadece gelen mesajlarda göster
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _getTypeColor(messageTypeText).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                messageTypeText,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: _getTypeColor(messageTypeText),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            
+                          // Zaman bilgisi
                           Text(
                             formattedTime,
                             style: TextStyle(
-                              fontSize: 11,
-                              color: isSent ? Colors.white.withOpacity(0.8) : Colors.black45,
+                              fontSize: 10,
+                              color: isSent ? primaryColor : Colors.grey[600],
                             ),
                           ),
+                          
+                          // Okundu işareti - Sadece gönderilen mesajlarda
                           if (isSent) 
-                            const SizedBox(width: 4),
-                          if (isSent) 
-                            Icon(
-                              Icons.done_all,
-                              size: 12,
-                              color: Colors.white.withOpacity(0.8),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.done_all,
+                                size: 12,
+                                color: primaryColor.withOpacity(0.7),
+                              ),
                             ),
                         ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -358,5 +464,257 @@ class MessageScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Mesaj işlemleri menüsünü göster
+  void _showMessageActionsMenu(BuildContext context, SmsMessage message, Offset position) {
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // Mesaj içeriği önizleme
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        child: const Icon(Icons.message, color: Colors.white, size: 16),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        "Mesaj İçeriği",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message.body ?? "",
+                    style: const TextStyle(
+                      fontSize: 14,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            
+            const Divider(),
+            
+            ListTile(
+              leading: const Icon(Icons.content_copy_outlined, color: Colors.blue),
+              title: const Text("Mesajı Kopyala"),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: message.body ?? ""));
+                Navigator.pop(context);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Mesaj kopyalandı'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share_outlined, color: Colors.green),
+              title: const Text("Mesajı Paylaş"),
+              onTap: () {
+                Navigator.pop(context);
+                // Paylaşım işlevi
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text("Mesajı Sil"),
+              onTap: () async {
+                Navigator.pop(context);
+                // Silme işlemi onayı
+                final shouldDelete = await _confirmDelete(context);
+                if (shouldDelete && context.mounted) {
+                  _deleteMessage(context, message);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Silme işlemi onayı
+  Future<bool> _confirmDelete(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mesajı Sil'),
+        content: const Text('Bu mesajı silmek istediğinizden emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'İPTAL',
+              style: TextStyle(
+                color: Colors.grey[700],
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'SİL',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  // Mesajı silme
+  Future<void> _deleteMessage(BuildContext context, SmsMessage message) async {
+    try {
+      final result = await SmsRemover().removeSmsById(
+        message.id!.toString(), 
+        message.threadId!.toString()
+      );
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          )
+        );
+        BlocProvider.of<SmsCubit>(context).onNewMessage(null);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("SMS silme hatası: $e"),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          )
+        );
+      }
+    }
+  }
+
+  // Mesaj tipine göre renk belirleme
+  Color _getTypeColor(String type) {
+    switch (type) {
+      case "Gönderildi":
+        return const Color(0xFF009688); // Teal
+      case "Gelen Kutusu":
+        return const Color(0xFF2196F3); // Blue
+      case "Taslak":
+        return const Color(0xFFFF9800); // Orange
+      case "Başarısız":
+        return const Color(0xFFF44336); // Red
+      case "Sırada":
+        return const Color(0xFFFF9800); // Orange
+      default:
+        return Colors.grey[700]!;
+    }
+  }
+
+  // İsme göre renk üretme
+  Color _getNameColor(String name) {
+    if (name.isEmpty) return const Color(0xFF607D8B); // Default color
+    
+    final int hash = name.codeUnits.fold(0, (prev, element) => prev + element);
+    final List<Color> colors = [
+      const Color(0xFF009688), // Teal
+      const Color(0xFF2196F3), // Blue
+      const Color(0xFF673AB7), // Deep Purple
+      const Color(0xFF4CAF50), // Green
+      const Color(0xFFFF5722), // Deep Orange
+      const Color(0xFF607D8B), // Blue Grey
+    ];
+    
+    return colors[hash % colors.length];
+  }
+  
+  // SMS türüne göre Türkçe metin döndüren yardımcı fonksiyon
+  String _getMessageTypeText(String kindStr) {
+    switch (kindStr) {
+      case "SmsMessageKind.Sent":
+        return "Gönderildi";
+      case "SmsMessageKind.Draft":
+        return "Taslak";
+      case "SmsMessageKind.Inbox":
+      case "SmsMessageKind.Received":  // Flutter SMS inbox kütüphanesinde bu şekilde olabilir
+        return "Gelen Kutusu";
+      case "SmsMessageKind.Outbox":
+        return "Giden Kutusu";
+      case "SmsMessageKind.Failed":
+        return "Başarısız";
+      case "SmsMessageKind.Queued":
+        return "Sırada";
+      default:
+        return kindStr.replaceAll("SmsMessageKind.", ""); // Varsayılan olarak tip ismini döndür
+    }
+  }
+  
+  // SMS'in okundu durumu ve diğer detaylarını gösteren metin
+  String _getMessageStatusText(SmsMessage message) {
+    List<String> details = [];
+    
+    // Okundu durumu kontrolü
+    if (message.read != null) {
+      details.add(message.read == 1 ? "Okundu" : "Okunmadı");
+    }
+    
+    // Kimden/kime bilgisi
+    if (message.address != null && message.address!.isNotEmpty) {
+      details.add("ID: ${message.id ?? 'N/A'}");
+    }
+    
+    // Thread ID varsa ekle
+    if (message.threadId != null) {
+      details.add("Konu ID: ${message.threadId}");
+    }
+    
+    return details.join(' • ');
   }
 }

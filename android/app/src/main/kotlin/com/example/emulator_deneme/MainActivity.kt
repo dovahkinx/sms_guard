@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Telephony
+import android.util.Log
 import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -65,18 +66,83 @@ class MainActivity: FlutterActivity() {
                     }
                 }
                 "removeSms" -> {
-                    val data = call.arguments as? Map<String, Any>
-                    val id = data?.get("id") as? String
-                    val threadId = data?.get("threadId") as? String
-                    
-                    val deleted = SmsManager.deleteSms(this, id, threadId)
-                    if (deleted > 0) {
-                        result.success("SMS başarıyla silindi")
-                    } else {
-                        result.success("SMS silinemedi")
+                    try {
+                        val data = call.arguments as? Map<String, Any>
+                        val id = data?.get("id") as? String
+                        val threadId = data?.get("threadId") as? String
+                        
+                        Log.d("SMS_GUARD", "Flutter'dan silme talebi alındı: id=$id, threadId=$threadId")
+                        
+                        if (id == null || threadId == null) {
+                            Log.e("SMS_GUARD", "Null id veya threadId: id=$id, threadId=$threadId")
+                            result.error("INVALID_ARGS", "ID veya threadId geçersiz", null)
+                            return@setMethodCallHandler
+                        }
+                        
+                        Log.d("SMS_GUARD", "SmsManager.deleteSms çağrılıyor: id=$id, threadId=$threadId")
+                        val deleted = SmsManager.deleteSms(this, id, threadId)
+                        
+                        if (deleted > 0) {
+                            Log.d("SMS_GUARD", "Mesaj başarıyla silindi, silinen satır sayısı: $deleted")
+                            result.success("SMS başarıyla silindi ($deleted satır)")
+                        } else {
+                            Log.w("SMS_GUARD", "Mesaj silinemedi (0 satır)")
+                            result.success("SMS silinemedi (0 satır)")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("SMS_GUARD", "SMS silme hatası: ${e.message}", e)
+                        result.error("EXCEPTION", "SMS silme hatası: ${e.message}", e.toString())
                     }
                 }
-          
+                "markThreadAsRead" -> {
+                    try {
+                        val data = call.arguments as? Map<String, Any>
+                        val threadId = data?.get("threadId") as? String
+                        
+                        Log.d("SMS_GUARD", "Flutter'dan okundu talebi alındı: threadId=$threadId")
+                        
+                        if (threadId == null) {
+                            Log.e("SMS_GUARD", "Null threadId: threadId=$threadId")
+                            result.error("INVALID_ARGS", "threadId geçersiz", null)
+                            return@setMethodCallHandler
+                        }
+                        
+                        val updatedRows = SmsManager.markThreadAsRead(this, threadId)
+                        
+                        if (updatedRows > 0) {
+                            Log.d("SMS_GUARD", "Mesajlar okundu olarak işaretlendi, güncellenen satır sayısı: $updatedRows")
+                            result.success("$updatedRows mesaj okundu olarak işaretlendi")
+                        } else {
+                            Log.w("SMS_GUARD", "Hiçbir mesaj işaretlenmedi (0 satır)")
+                            result.success("Güncellenecek okunmamış mesaj bulunamadı")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("SMS_GUARD", "Mesajları okundu olarak işaretleme hatası: ${e.message}", e)
+                        result.error("EXCEPTION", "Okundu işaretleme hatası: ${e.message}", e.toString())
+                    }
+                }
+                "isThreadRead" -> {
+                    try {
+                        val data = call.arguments as? Map<String, Any>
+                        val threadId = data?.get("threadId") as? String
+                        
+                        Log.d("SMS_GUARD", "Flutter'dan okunma durumu sorgusu alındı: threadId=$threadId")
+                        
+                        if (threadId == null) {
+                            Log.e("SMS_GUARD", "Null threadId: threadId=$threadId")
+                            result.error("INVALID_ARGS", "threadId geçersiz", null)
+                            return@setMethodCallHandler
+                        }
+                        
+                        val isRead = SmsManager.isThreadRead(this, threadId)
+                        
+                        Log.d("SMS_GUARD", "Thread $threadId okunma durumu: ${if (isRead) "okundu" else "okunmadı"}")
+                        result.success(isRead)
+                    } catch (e: Exception) {
+                        Log.e("SMS_GUARD", "Okunma durumu sorgulama hatası: ${e.message}", e)
+                        result.error("EXCEPTION", "Okunma durumu sorgulama hatası: ${e.message}", e.toString())
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -102,8 +168,8 @@ class MainActivity: FlutterActivity() {
                 try {
                     // Only unregister if we have a valid receiver
                     if (smsReceiver != null) {
-                        unregisterReceiver(smsReceiver)
-                        smsReceiver = null
+                  unregisterReceiver(smsReceiver)
+                              smsReceiver = null
                         println("SMS Listener unregistered successfully")
                     } else {
                         println("No SMS Listener to unregister")

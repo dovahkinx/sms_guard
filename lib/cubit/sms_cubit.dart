@@ -191,6 +191,25 @@ class SmsCubit extends Cubit<SmsState> {
     }
   }
 
+  // Listeyi zorla yenilemek için dışarıdan çağrılabilir metod
+  Future<void> forceRefresh() async {
+    // Loading durumunu güncelle
+    emit(state.copyWith(isLoading: true));
+    
+    // Önbelleği temizle ve _gettingMessages bayrağını sıfırla, böylece tüm mesajları yeniden yükleriz
+    _gettingMessages = false;
+    
+    // Tüm mesajları yeniden yükle
+    await _forceRefreshMessages();
+    
+    // Loading durumunu kapat ve zaman damgasını güncelle
+    emit(state.copyWith(
+      isLoading: false,
+      isInit: true,
+      timestamp: DateTime.now().millisecondsSinceEpoch
+    ));
+  }
+
   Future<void> filterMessageForAdress(address) async {
     emit(state.copyWith(address: address));
     SmsQuery query = SmsQuery();

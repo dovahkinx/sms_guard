@@ -85,6 +85,46 @@ class SmsService {
     }
   }
   
+  /// Bir konuşmadaki tüm okunmamış mesajları okundu olarak işaretler
+  /// 
+  /// [threadId]: Okundu olarak işaretlenecek konuşmanın thread ID'si
+  /// Returns: İşaretlenen mesaj sayısı veya hata mesajı
+  Future<String> markThreadAsRead(String threadId) async {
+    try {
+      log('Mesajlar okundu olarak işaretleniyor: threadId=$threadId');
+      
+      final result = await _channel.invokeMethod('markThreadAsRead', {
+        'threadId': threadId,
+      });
+      
+      log('Okundu işaretleme sonucu: $result');
+      return result.toString();
+    } catch (e) {
+      log('Mesajları okundu olarak işaretleme hatası: $e');
+      return 'Okundu işaretleme hatası: $e';
+    }
+  }
+  
+  /// Bir konuşmanın okunma durumunu Kotlin tarafında kontrol eder
+  /// 
+  /// [threadId]: Kontrol edilecek konuşmanın thread ID'si
+  /// Returns: true: okunmuş, false: okunmamış
+  Future<bool> isThreadRead(String threadId) async {
+    try {
+      log('Thread okunma durumu sorgulanıyor: threadId=$threadId');
+      
+      final result = await _channel.invokeMethod('isThreadRead', {
+        'threadId': threadId,
+      });
+      
+      log('Thread okunma durumu: ${result ? "okundu" : "okunmadı"}');
+      return result ?? true; // Eğer null gelirse varsayılan olarak okunmuş kabul et
+    } catch (e) {
+      log('Thread okunma durumu sorgulama hatası: $e');
+      return true; // Hata durumunda varsayılan olarak okunmuş kabul et
+    }
+  }
+  
   /// Telefon numarasını Türkiye formatına çevirir
   String _formatPhoneNumber(String phoneNumber) {
     // Boşlukları ve özel karakterleri temizle

@@ -7,6 +7,7 @@ import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' show SmsQuery;
 
 import 'package:sms_guard/constant/constant.dart';
 import 'package:sms_guard/services/sms_remover.dart';
+import 'package:sms_guard/services/sms_service.dart';
 import 'package:sms_guard/view/chat_messages_view.dart';
 import 'package:sms_guard/view/send_sms_view.dart';
 import 'package:sms_guard/view/spam_sms.dart';
@@ -219,88 +220,104 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       itemBuilder: (context, index) {
         var thread = state.myMessages[index];
         
-        // Mesaj okunma durumunu belirle (örnek: index 2'ye bölünebiliyorsa okunmadı)
-        bool isUnread = index % 3 == 0;
-                          
-        return Card(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () {
-              context.read<SmsCubit>().filterMessageForAdress(thread.address);
-              _navigateToChatScreen(thread.address, thread.name);
-            },
-            onLongPress: () => _showMessageOptions(context, thread),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: Hero(
-                  tag: "avatar_${thread.address}",
-                  child: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: _getAvatarColor(thread.name),
-                    child: thread.name == ""
-                        ? _circleAvatarText("?")
-                        : _circleAvatarText(thread.name),
+        // FutureBuilder kullanarak Kotlin tarafından thread okunma durumunu al
+        return FutureBuilder<bool>(
+          future: thread.threadId != null 
+              ? SmsService.instance.isThreadRead(thread.threadId.toString()) 
+              : Future.value(true), // threadId yoksa okunmuş varsay
+          builder: (context, snapshot) {
+            // Eğer veri hala yükleniyorsa thread'i okunmuş kabul et
+            bool isRead = snapshot.hasData ? snapshot.data! : true;
+            bool isUnread = !isRead; // isRead'in tersi
+            
+            return Card(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () async {
+                  // Thread'i okundu olarak işaretle (Kotlin tarafında gerçekleşiyor)
+                  if (thread.threadId != null && isUnread) {
+                    // SmsService'i kullanarak okundu olarak işaretle
+                    await SmsService.instance.markThreadAsRead(thread.threadId.toString());
+                  }
+                  
+                  // Mevcut işlemleri gerçekleştir
+                  context.read<SmsCubit>().filterMessageForAdress(thread.address);
+                  _navigateToChatScreen(thread.address, thread.name);
+                },
+                onLongPress: () => _showMessageOptions(context, thread),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Hero(
+                      tag: "avatar_${thread.address}",
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundColor: _getAvatarColor(thread.name),
+                        child: thread.name == ""
+                            ? _circleAvatarText("?")
+                            : _circleAvatarText(thread.name),
+                      ),
+                    ),
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            (thread.name == null || thread.name!.isEmpty) 
+                              ? (thread.address ?? 'Bilinmeyen Numara')
+                              : thread.name!,
+                            style: TextStyle(
+                              fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 16,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _dateConvert(thread.date.toString()),
+                          style: TextStyle(
+                            color: isUnread ? Theme.of(context).colorScheme.primary : Colors.grey[500],
+                            fontSize: 12,
+                            fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Row(
+                      children: [
+                        isUnread 
+                          ? Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(right: 4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            )
+                          : const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _subtitleConvert(thread.lastMessage),
+                            style: TextStyle(
+                              color: isUnread ? Colors.black87 : Colors.grey[600],
+                              fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                title: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        (thread.name == null || thread.name!.isEmpty) 
-                          ? (thread.address ?? 'Bilinmeyen Numara')
-                          : thread.name!,
-                        style: TextStyle(
-                          fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
-                          fontSize: 16,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _dateConvert(thread.date.toString()),
-                      style: TextStyle(
-                        color: isUnread ? Theme.of(context).colorScheme.primary : Colors.grey[500],
-                        fontSize: 12,
-                        fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-                subtitle: Row(
-                  children: [
-                    isUnread 
-                      ? Container(
-                          width: 8,
-                          height: 8,
-                          margin: const EdgeInsets.only(right: 4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        )
-                      : const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _subtitleConvert(thread.lastMessage),
-                        style: TextStyle(
-                          color: isUnread ? Colors.black87 : Colors.grey[600],
-                          fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-          ),
+            );
+          }
         );
       },
     );
@@ -452,7 +469,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         
         // UI'ı güncelle
         if (context.mounted) {
-          if (deletedCount == totalMessages) {
+          if (deletedCount == totalMessages && totalMessages > 0) {
+            // Tam silme başarılı, yerel listeyi de güncelle
+            context.read<SmsCubit>().forceRefresh();
+            
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Konuşma başarıyla silindi ($deletedCount/$totalMessages)'),
@@ -461,8 +481,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 duration: const Duration(seconds: 2),
               ),
             );
-          } else {
-            // Bazı mesajlar silinemedi
+          } else if (deletedCount > 0) {
+            // Kısmen silme başarılı
+            context.read<SmsCubit>().forceRefresh();
+            
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Bazı mesajlar silinemedi ($deletedCount/$totalMessages)'),
@@ -476,10 +498,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
             );
+          } else {
+            // Hiç silme başarılı değil
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Mesajlar silinemedi. Lütfen tekrar deneyin.'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                action: SnackBarAction(
+                  label: 'TEKRAR DENE',
+                  textColor: Colors.white,
+                  onPressed: () => _deleteConversation(thread),
+                ),
+              ),
+            );
           }
-          
-          // Liste görünümünü güncelle
-          context.read<SmsCubit>().onNewMessage(null);
         }
       } catch (e) {
         // Hata durumunda ilerleme göstergesini kapat
